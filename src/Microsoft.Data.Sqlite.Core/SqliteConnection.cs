@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -10,6 +11,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Microsoft.Data.Sqlite.Properties;
 using SQLitePCL;
 using static SQLitePCL.raw;
@@ -28,7 +30,8 @@ public partial class SqliteConnection : DbConnection
     private const int SQLITE_WIN32_DATA_DIRECTORY_TYPE = 1;
     private const int SQLITE_WIN32_TEMP_DIRECTORY_TYPE = 2;
 
-    private readonly List<WeakReference<SqliteCommand>> _commands = [];
+    private readonly ConcurrentDictionary<long, WeakReference<SqliteCommand>> _commands = [];
+    private long _nextCommandId;
 
     private Dictionary<string, (object? state, strdelegate_collation? collation)>? _collations;
 
@@ -87,7 +90,10 @@ public partial class SqliteConnection : DbConnection
                 // Ignore the unpackaged-app "no package identity" case; ApplicationData.Current is unavailable there.
             }
             catch (Exception ex) when (ex is NotImplementedException or NotSupportedException
-                                           or TargetInvocationException { InnerException: NotImplementedException or NotSupportedException })
+                                           or TargetInvocationException
+                                           {
+                                               InnerException: NotImplementedException or NotSupportedException
+                                           })
             {
                 // Ignore when WinRT APIs aren't implemented or supported (e.g., running under Wine)
                 // ApplicationData.Current is unavailable there.
@@ -114,7 +120,10 @@ public partial class SqliteConnection : DbConnection
                     }
                 }
                 catch (Exception ex) when (ex is NotImplementedException or NotSupportedException
-                                               or TargetInvocationException { InnerException: NotImplementedException or NotSupportedException })
+                                               or TargetInvocationException
+                                               {
+                                                   InnerException: NotImplementedException or NotSupportedException
+                                               })
                 {
                     // Ignore failures accessing LocalFolder/TemporaryFolder when WinRT isn't fully implemented.
                 }
@@ -363,18 +372,16 @@ public partial class SqliteConnection : DbConnection
 
         Transaction?.Dispose();
 
-        var commands = _commands;
-        for (var i = commands.Count - 1; i >= 0; i--)
+        foreach (var item in _commands)
         {
-            var reference = commands[i];
-            if (reference.TryGetTarget(out var command))
+            _commands.TryRemove(item.Key, out _);
+
+            if (item.Value.TryGetTarget(out var command))
             {
-                // NB: Calls RemoveCommand()
                 command.Dispose();
             }
         }
 
-        _commands.Clear();
         _innerConnection!.Close();
         _innerConnection = null;
 
@@ -462,20 +469,23 @@ public partial class SqliteConnection : DbConnection
     protected override DbCommand CreateDbCommand()
         => CreateCommand();
 
-    internal void AddCommand(SqliteCommand command)
-        => _commands.Add(new WeakReference<SqliteCommand>(command));
-
-    internal void RemoveCommand(SqliteCommand command)
+    internal long AddCommand(SqliteCommand command)
     {
-        for (var i = _commands.Count - 1; i >= 0; i--)
+        var id = Interlocked.Increment(ref _nextCommandId);
+
+        if (!_commands.TryAdd(id, new WeakReference<SqliteCommand>(command)))
         {
-            var reference = _commands[i];
-            if (reference != null
-                && reference.TryGetTarget(out var item)
-                && item == command)
-            {
-                _commands.RemoveAt(i);
-            }
+            return 0;
+        }
+
+        return id;
+    }
+
+    internal void RemoveCommand(long commandId)
+    {
+        if (commandId != 0)
+        {
+            _commands.TryRemove(commandId, out _);
         }
     }
 

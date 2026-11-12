@@ -1,19 +1,20 @@
 <Project>
 
-  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk"/>
 
   <PropertyGroup>
     <Description>Microsoft.Data.Sqlite is a lightweight ADO.NET provider for SQLite.
 
-Commonly Used Types:
-Microsoft.Data.Sqlite.SqliteCommand
-Microsoft.Data.Sqlite.SqliteConnection
-Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
-Microsoft.Data.Sqlite.SqliteDataReader
-Microsoft.Data.Sqlite.SqliteException
-Microsoft.Data.Sqlite.SqliteFactory
-Microsoft.Data.Sqlite.SqliteParameter
-Microsoft.Data.Sqlite.SqliteTransaction</Description>
+      Commonly Used Types:
+      Microsoft.Data.Sqlite.SqliteCommand
+      Microsoft.Data.Sqlite.SqliteConnection
+      Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+      Microsoft.Data.Sqlite.SqliteDataReader
+      Microsoft.Data.Sqlite.SqliteException
+      Microsoft.Data.Sqlite.SqliteFactory
+      Microsoft.Data.Sqlite.SqliteParameter
+      Microsoft.Data.Sqlite.SqliteTransaction
+    </Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <TargetFrameworks>$(NetMinimum)</TargetFrameworks>
     <MinClientVersion>3.6</MinClientVersion>
@@ -21,14 +22,15 @@ Microsoft.Data.Sqlite.SqliteTransaction</Description>
     <IncludeSymbols>false</IncludeSymbols>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <PackageProjectUrl>https://docs.microsoft.com/dotnet/standard/data/sqlite/</PackageProjectUrl>
+    <PackageId>PL.$(AssemblyName)</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3"/>
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Microsoft.Data.Sqlite.Core\Microsoft.Data.Sqlite.Core.csproj" PackageVersion="[$(Version), $(NextMajorVersion))" />
+    <ProjectReference Include="..\Microsoft.Data.Sqlite.Core\Microsoft.Data.Sqlite.Core.csproj" PackageVersion="[$(Version), $(NextMajorVersion))"/>
   </ItemGroup>
 
   <ItemGroup>
@@ -38,18 +40,18 @@ Microsoft.Data.Sqlite.SqliteTransaction</Description>
     </None>
   </ItemGroup>
 
-  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk"/>
 
-  <Target Name="Compile" />
-  <Target Name="CopyFilesToOutputDirectory" />
+  <Target Name="Compile"/>
+  <Target Name="CopyFilesToOutputDirectory"/>
 
   <!-- This is a packaging-only project with no native compilation; suppress the AnyCPU architecture check from SQLitePCLRaw native packages -->
-  <Target Name="CheckForAnyCPU" />
+  <Target Name="CheckForAnyCPU"/>
 
   <Target Name="CheckNetMinimumLibDirectory" BeforeTargets="DispatchToInnerBuilds">
     <Error
       Condition="'$(NetMinimum)' != 'net10.0'"
-      Text="NetMinimum has changed to '$(NetMinimum)'. Rename the 'lib\net10.0' directory to 'lib\$(NetMinimum)'." />
+      Text="NetMinimum has changed to '$(NetMinimum)'. Rename the 'lib\net10.0' directory to 'lib\$(NetMinimum)'."/>
   </Target>
 
 </Project>

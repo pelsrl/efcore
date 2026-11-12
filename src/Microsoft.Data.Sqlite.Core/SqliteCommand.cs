@@ -30,6 +30,7 @@ public class SqliteCommand : DbCommand
 
     private readonly List<(sqlite3_stmt Statement, int ParamCount)> _preparedStatements = [with(1)];
     private SqliteConnection? _connection;
+    private long _connectionCommandId;
     private string _commandText = string.Empty;
     private bool _prepared;
     private int? _commandTimeout;
@@ -126,9 +127,9 @@ public class SqliteCommand : DbCommand
             {
                 DisposePreparedStatements();
 
-                _connection?.RemoveCommand(this);
+                _connection?.RemoveCommand(this._connectionCommandId);
                 _connection = value;
-                value?.AddCommand(this);
+                _connectionCommandId = value?.AddCommand(this) ?? 0;
             }
         }
     }
@@ -220,7 +221,8 @@ public class SqliteCommand : DbCommand
 
         if (disposing)
         {
-            _connection?.RemoveCommand(this);
+            _connection?.RemoveCommand(_connectionCommandId);
+            _connectionCommandId = 0;
         }
 
         base.Dispose(disposing);

@@ -676,6 +676,11 @@ public class SqliteDataReader : DbDataReader
         columns.Add(isAutoIncrementColumn);
         columns.Add(isLongColumn);
 
+        Dictionary<string, bool> dizionarioVerificaEponymousVirtualTable = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, HashSet<string>> dizionarioTabelleConColonneUniche = new(StringComparer.OrdinalIgnoreCase);
+
+        using var command = _command.Connection!.CreateCommand();
+
         for (var i = 0; i < FieldCount; i++)
         {
             var schemaRow = schemaTable.NewRow();
@@ -700,57 +705,52 @@ public class SqliteDataReader : DbDataReader
             schemaRow[isExpressionColumn] = columnName == null;
             schemaRow[isLongColumn] = DBNull.Value;
 
-            var eponymousVirtualTable = false;
-            if (tableName != null
-                && columnName != null)
+            if (tableName != null)
             {
-                using (var command = _command.Connection.CreateCommand())
+                if (!dizionarioTabelleConColonneUniche.ContainsKey(tableName))
                 {
-                    command.CommandText = new StringBuilder()
-                        .AppendLine("SELECT COUNT(*)")
-                        .AppendLine("FROM pragma_index_list($table) i, pragma_index_info(i.name) c")
-                        .AppendLine("WHERE \"unique\" = 1 AND c.name = $column AND")
-                        .AppendLine("NOT EXISTS (SELECT * FROM pragma_index_info(i.name) c2 WHERE c2.name != c.name);").ToString();
-                    command.Parameters.AddWithValue("$table", tableName);
-                    command.Parameters.AddWithValue("$column", columnName);
-
-                    var cnt = (long)command.ExecuteScalar()!;
-                    schemaRow[isUniqueColumn] = !isAliased && cnt != 0;
-
+                    dizionarioTabelleConColonneUniche[tableName] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     command.Parameters.Clear();
-                    var columnType = "typeof(\"" + columnName.Replace("\"", "\"\"") + "\")";
-                    command.CommandText = new StringBuilder()
-                        .AppendLine($"SELECT {columnType}")
-                        .AppendLine($"FROM \"{tableName.Replace("\"", "\"\"")}\"")
-                        .AppendLine($"WHERE {columnType} != 'null'")
-                        .AppendLine($"GROUP BY {columnType}")
-                        .AppendLine("ORDER BY count() DESC")
-                        .AppendLine("LIMIT 1;").ToString();
+                    command.CommandText =
+                        "SELECT c.name FROM pragma_index_list($table) i, pragma_index_info(i.name) c WHERE \"unique\" = 1 GROUP BY i.name HAVING COUNT(*) = 1";
+                    command.Parameters.AddWithValue("$table", tableName);
 
-                    var type = (string?)command.ExecuteScalar();
-                    schemaRow[dataTypeColumn] =
-                        (type != null)
-                            ? SqliteDataRecord.GetFieldType(type)
-                            : SqliteDataRecord.GetFieldTypeFromSqliteType(
-                                SqliteDataRecord.Sqlite3AffinityType(dataTypeName));
+                    using var reader = command.ExecuteReader();
 
-                    command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name = $name AND type IN ('table', 'view')";
-                    command.Parameters.AddWithValue("$name", tableName);
-
-                    eponymousVirtualTable = (long)command.ExecuteScalar()! == 0L;
+                    while (reader.Read())
+                    {
+                        dizionarioTabelleConColonneUniche[tableName].Add(reader.GetString(0));
+                    }
                 }
 
-                if (databaseName != null
-                    && !eponymousVirtualTable)
+                if (columnName != null)
                 {
-                    var rc = sqlite3_table_column_metadata(
-                        _command.Connection.Handle, databaseName, tableName, columnName, out var dataType, out var collSeq,
-                        out var notNull, out var primaryKey, out var autoInc);
-                    SqliteException.ThrowExceptionForRC(rc, _command.Connection.Handle);
+                    schemaRow[isUniqueColumn] = dizionarioTabelleConColonneUniche[tableName].Contains(columnName);
 
-                    schemaRow[isKeyColumn] = primaryKey != 0;
-                    schemaRow[allowDBNullColumn] = isAliased || notNull == 0;
-                    schemaRow[isAutoIncrementColumn] = autoInc != 0;
+                    schemaRow[dataTypeColumn] =
+                        SqliteDataRecord.GetFieldTypeFromSqliteType(SqliteDataRecord.Sqlite3AffinityType(dataTypeName));
+
+                    if (!dizionarioVerificaEponymousVirtualTable.ContainsKey(tableName))
+                    {
+                        command.Parameters.Clear();
+                        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name = $name AND type IN ('table', 'view')";
+                        command.Parameters.AddWithValue("$name", tableName);
+                        dizionarioVerificaEponymousVirtualTable[tableName] = (long)command.ExecuteScalar()! == 0L;
+                    }
+
+                    if (databaseName != null
+                        && !dizionarioVerificaEponymousVirtualTable[tableName])
+                    {
+                        var rc = sqlite3_table_column_metadata(
+                            _command.Connection.Handle, databaseName, tableName, columnName, out var dataType, out var collSeq,
+                            out var notNull, out var primaryKey, out var autoInc);
+
+                        SqliteException.ThrowExceptionForRC(rc, _command.Connection.Handle);
+
+                        schemaRow[isKeyColumn] = primaryKey != 0;
+                        schemaRow[allowDBNullColumn] = notNull == 0;
+                        schemaRow[isAutoIncrementColumn] = autoInc != 0;
+                    }
                 }
             }
 

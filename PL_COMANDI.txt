@@ -1,0 +1,13 @@
+Lanciare con cmd nella cartella principale il comando
+
+build /p:OfficialBuildId=20261112.1 -pack -c Release
+
+Cambiare la data ed il progressivo dopo il . per eventuali build aggiuntive in giornata
+
+
+Si lavora sulla soluzione Microsoft.Data.Sqlite.sln
+
+I file di build finiscono in C:\gabry\dev\efcorePL\artifacts\packages\Release\Shipping
+
+PL.Microsoft.Data.Sqlite.Core.11.0.1-servicing.
+PL.Microsoft.Data.Sqlite.11.0.1-servicing.
