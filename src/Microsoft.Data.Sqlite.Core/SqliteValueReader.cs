@@ -388,7 +388,7 @@ internal abstract class SqliteValueReader
         => GetSqliteType(ordinal) switch
         {
             SQLITE_INTEGER => GetInt64(ordinal),
-            SQLITE_FLOAT => GetDouble(ordinal),
+            SQLITE_FLOAT => GetDecimal(ordinal),
             SQLITE_TEXT => GetString(ordinal),
             SQLITE_NULL => GetNull<object>(ordinal),
             SQLITE_BLOB => GetBlob(ordinal),

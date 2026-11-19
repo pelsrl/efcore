@@ -213,7 +213,7 @@ internal class SqliteDataRecord(sqlite3_stmt stmt, bool hasRows, SqliteConnectio
                 return typeof(long);
 
             case SQLITE_FLOAT:
-                return typeof(double);
+                return typeof(decimal);
 
             case SQLITE_TEXT:
                 return typeof(string);
